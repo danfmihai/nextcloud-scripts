@@ -17,7 +17,7 @@ user_cred=$backup_dir/db_cred.txt
 ng_folder=/etc/nginx/
 le_folder=/etc/letsencrypt/
 
-clear
+clear 
 
 get_info () {
     version=$(cat $nextcloud_dir/config/config.php | grep version | awk '{print $3}' | sed "s/['\,,\"]//g")
