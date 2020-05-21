@@ -8,6 +8,10 @@
 # => https://paypal.me/carstenrieger
 ############################################################
 
+# REPLACE server_name with yours cloud.domain.com #
+# var
+domainname=cloud.domain.com
+
 ###global function to update and cleanup the environment
   update_and_clean() {
 apt update
@@ -257,10 +261,10 @@ cp /etc/sysctl.conf /etc/sysctl.conf.bak && sed -i '$avm.overcommit_memory = 1' 
 apt install ssl-cert -y
 ###prepare NGINX for Nextcloud and SSL
 [ -f /etc/nginx/conf.d/default.conf ] && mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak
-touch /etc/nginx/conf.d/default.conf
+touch /etc/nginx/conf.d/default.conf 
 cat <<EOF >/etc/nginx/conf.d/nextcloud.conf
 server {
-server_name cloud.myecopc.com;
+server_name ${domainname};
 listen 80 default_server;
 #listen [::]:80 default_server;
 location ^~ /.well-known/acme-challenge {
@@ -272,7 +276,7 @@ return 301 https://\$host\$request_uri;
 }
 }
 server {
-server_name cloud.myecopc.com;
+server_name $domainname;
 listen 443 ssl http2 default_server;
 #listen [::]:443 ssl http2 default_server;
 root /var/www/nextcloud/;
@@ -450,7 +454,7 @@ fastcgi_cache_methods GET HEAD;
 EOF
 ###enable all nginx configuration files
 sed -i s/\#\include/\include/g /etc/nginx/nginx.conf
-sed -i "s/server_name cloud.myecopc.com;/server_name $(hostname);/" /etc/nginx/conf.d/nextcloud.conf
+sed -i "s/server_name ${domainname};/server_name $(hostname);/" /etc/nginx/conf.d/nextcloud.conf
 ###create Nextclouds cronjob
 (crontab -u www-data -l ; echo "*/5 * * * * php -f /var/www/nextcloud/cron.php > /dev/null 2>&1") | crontab -u www-data -
 ###restart NGINX
@@ -504,7 +508,7 @@ sudo -u www-data php /var/www/nextcloud/occ maintenance:install --database "mysq
 ###read and store the current hostname in lowercases
 declare -l YOURSERVERNAME
 #YOURSERVERNAME=$(hostname)
-YOURSERVERNAME=cloud.myecopc.com 
+YOURSERVERNAME=${domainname} 
 ###Modifications to Nextclouds config.php
 sudo -u www-data cp /var/www/nextcloud/config/config.php /var/www/nextcloud/config/config.php.bak
 sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains 0 --value=$YOURSERVERNAME
