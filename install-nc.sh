@@ -12,6 +12,9 @@
 # var
 domainname=cloud.domain.com
 
+# Reference on the original script 
+#https://riegers.in/install-nextcloud-18-using-one-script-only/
+
 ###global function to update and cleanup the environment
   update_and_clean() {
 apt update
