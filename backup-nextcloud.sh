@@ -13,7 +13,10 @@ backup_remote=root@proxmox.lan               #backup remote host whre to transfe
 backup_port=30004                            #backup remote host port
 backup_location=/mnt/backup/vps/nextcloud/   #backup remote destination for the backup files
 backup_log=~/backup_$(date '+%m-%d-%Y-%H:%M').log
-user_cred=$backup_dir/user_cred.txt
+user_cred=$backup_dir/db_cred.txt
+ng_folder=/etc/nginx/
+le_folder=/etc/letsencrypt/
+
 clear
 
 get_info () {
@@ -25,6 +28,13 @@ get_info () {
     echo "user='${_dbuser}'" >> $user_cred
     echo "password='${_dbpass}'" >> $user_cred
 }
+
+compress_letsencrypt_nginx () {
+      echo "Compressing configuration folders nginx and letsencrypt"
+      echo
+      tar cpzf nginx-letsencrypt_$(date '+%m-%d-%Y-%H:%M')_$version.tar.gz $ng_folder $le_folder --force-local
+}
+
 
 ##### BACKUP OF NEXTCLOUD INSTALLATION #####
 echo "###### BACKUP OF NEXTCLOUD INSTALLATION ####"
@@ -46,8 +56,14 @@ echo
                   fi
             fi      
             
+            cd $backup_dir
+
             # get the version of nextcloud install
             get_info
+            
+            # compress configuration folders nginx and letsencrypt
+            compress_letsencrypt_nginx
+
             echo "*******************************"
             echo "Database user found: ${_dbuser}"
             echo "Database name found: ${_dbname}"
@@ -55,9 +71,9 @@ echo
             echo
             
             # name of the database file that will be created as backup
-            db_file=nextcloud_$( date '+%m-%d-%Y' )_$version.sql
+            db_file=nextcloud_$(date '+%m-%d-%Y-%H:%M')_$version.sql
             # tar file of nextcloud folder
-            tar_file=nextcloud_$( date '+%m-%d-%Y' )_$version.tar.gz
+            tar_file=nextcloud_$(date '+%m-%d-%Y-%H:%M')_$version.tar.gz
 
             echo "Any existing backup files ${db_file} and ${tar_file} will be overwritten!"
             echo
@@ -74,7 +90,8 @@ echo
             echo "Please wait..."
             cd $dir 
             # Creating archive tar for folder nextcloud/
-            tar cpzf $backup_dir/$tar_file nextcloud/
+            tar cpzf $backup_dir/$tar_file nextcloud/ --force-local
+            cd $backup_dir
             echo "Tar ${tar_file} archive done. "
             echo
             echo "Transfering the backup file and the database... "
