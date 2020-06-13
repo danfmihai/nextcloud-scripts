@@ -10,7 +10,7 @@
 
 # REPLACE server_name with yours cloud.domain.com #
 # var
-domainname=nctest.varu.local
+domainname=cloud.domain.com
 
 # Reference on the original script 
 #https://riegers.in/install-nextcloud-18-using-one-script-only/
