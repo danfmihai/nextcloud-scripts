@@ -10,7 +10,7 @@
 
 # REPLACE server_name with yours cloud.domain.com #
 # var
-domainname=nctest.varu.local
+domainname=cloud.domain.com
 
 # Reference on the original script 
 #https://riegers.in/install-nextcloud-18-using-one-script-only/
@@ -248,7 +248,7 @@ EOF
 # Create random password 
 PASSWDDB=`openssl rand -base64 40`
 MAINDB="cloudDB"
-MAINUSER="florin"
+MAINUSER="admin"
 
 mysql -u root <<MYSQL_SCRIPT
 CREATE DATABASE ${MAINDB} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; CREATE USER ${MAINUSER}@localhost identified by '${PASSWDDB}'; 
@@ -629,7 +629,7 @@ echo " https://$YOURSERVERNAME"
 echo ""
 echo "*******************************************************************************"
 echo "Your Nextcloud DB data : $MAINDB"
-echo "Your Nextcloud-DB password: $MAINUSER"
+echo "Your Nextcloud-DB user: $MAINUSER"
 echo "Your Nextcloud-DB password: $PASSWDDB"
 echo ""
 echo "Your Nextcloud User    : "$NEXTCLOUDADMINUSER
