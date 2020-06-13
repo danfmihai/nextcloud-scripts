@@ -629,7 +629,7 @@ echo " https://$YOURSERVERNAME"
 echo ""
 echo "*******************************************************************************"
 echo "Your Nextcloud DB data : $MAINDB"
-echo "Your Nextcloud-DB password: $MAINUSER"
+echo "Your Nextcloud-DB user: $MAINUSER"
 echo "Your Nextcloud-DB password: $PASSWDDB"
 echo ""
 echo "Your Nextcloud User    : "$NEXTCLOUDADMINUSER
