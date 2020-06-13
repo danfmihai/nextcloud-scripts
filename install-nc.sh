@@ -10,7 +10,7 @@
 
 # REPLACE server_name with yours cloud.domain.com #
 # var
-domainname=cloud.domain.com
+domainname=nctest.varu.local
 
 # Reference on the original script 
 #https://riegers.in/install-nextcloud-18-using-one-script-only/
@@ -156,6 +156,14 @@ ln -s /usr/local/bin/gs /usr/bin/gs
 /usr/sbin/service nginx restart
 ###install MariaDB
 apt update && apt install mariadb-server -y
+
+###harden your MariDB server
+mysql_secure_installation
+clear
+echo ""
+echo " Your database server will now be hardened - just follow the instructions."
+echo " Keep in mind: your MariaDB root password is still NOT set!"
+echo ""
 /usr/sbin/service mysql stop
 ###configure MariaDB
 mv /etc/mysql/my.cnf /etc/mysql/my.cnf.bak
@@ -237,19 +245,16 @@ key_buffer = 16M
 EOF
 /usr/sbin/service mysql restart
 ###restart MariaDB server and connect to MariaDB to create the database
-/usr/sbin/service mysql restart && mysql -uroot <<EOF
-CREATE DATABASE nextcloud CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE USER nextcloud@localhost identified by 'nextcloud';
-GRANT ALL PRIVILEGES on nextcloud.* to nextcloud@localhost;
-FLUSH privileges;
-EOF
-clear
-echo ""
-echo " Your database server will now be hardened - just follow the instructions."
-echo " Keep in mind: your MariaDB root password is still NOT set!"
-echo ""
-###harden your MariDB server
-mysql_secure_installation
+# Create random password 
+PASSWDDB=`openssl rand -base64 40`
+MAINDB="cloudDB"
+MAINUSER="florin"
+
+mysql -u root <<MYSQL_SCRIPT
+CREATE DATABASE ${MAINDB} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; CREATE USER ${MAINUSER}@localhost identified by '${PASSWDDB}'; 
+GRANT ALL PRIVILEGES on ${MAINDB}.* to ${MAINUSER}@localhost; FLUSH privileges;
+MYSQL_SCRIPT
+
 update_and_clean
 ###install Redis-Server
 apt install redis-server php-redis -y
@@ -279,7 +284,7 @@ return 301 https://\$host\$request_uri;
 }
 }
 server {
-server_name $domainname;
+server_name ${domainname};
 listen 443 ssl http2 default_server;
 #listen [::]:443 ssl http2 default_server;
 root /var/www/nextcloud/;
@@ -457,18 +462,17 @@ fastcgi_cache_methods GET HEAD;
 EOF
 ###enable all nginx configuration files
 sed -i s/\#\include/\include/g /etc/nginx/nginx.conf
-sed -i "s/server_name ${domainname};/server_name $(hostname);/" /etc/nginx/conf.d/nextcloud.conf
 ###create Nextclouds cronjob
 (crontab -u www-data -l ; echo "*/5 * * * * php -f /var/www/nextcloud/cron.php > /dev/null 2>&1") | crontab -u www-data -
 ###restart NGINX
 /usr/sbin/service nginx restart
-###Download Nextclouds latest release and extract it
-wget https://download.nextcloud.com/server/releases/latest.tar.bz2
-tar -xjfv latest.tar.bz2 -C /var/www
+###Download Nextclouds release and extract it
+nextcloud_version="18.0.6"
+curl -LO https://download.nextcloud.com/server/releases/nextcloud-${nextcloud_version}.zip
+unzip nextcloud-* -d /var/www/
+rm -f nextcloud-*
 ###apply permissions
 chown -R www-data:www-data /var/www/
-###remove the Nextcloud sources
-rm -f latest.tar.bz2
 ###update and restart all sources and services
 update_and_clean
 restart_all_services
@@ -477,9 +481,9 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo "Nextcloud-Administrator and password - Attention: password is case-sensitive:"
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-echo "Your Nextcloud-DB user: nextcloud"
+echo "Your Nextcloud-DB user: $MAINUSER"
 echo ""
-echo "Your Nextcloud-DB password: nextcloud"
+echo "Your Nextcloud-DB password: $PASSWDDB"
 echo ""
 read -p "Enter your Nextcloud Administrator: " NEXTCLOUDADMINUSER
 echo "Your Nextcloud Administrator: "$NEXTCLOUDADMINUSER
@@ -507,7 +511,7 @@ echo ""
 echo "Your NEXTCLOUD will now be installed silently - please be patient ..."
 echo ""
 ###NEXTCLOUD INSTALLATION
-sudo -u www-data php /var/www/nextcloud/occ maintenance:install --database "mysql" --database-name nextcloud --database-user nextcloud --database-pass nextcloud --admin-user "$NEXTCLOUDADMINUSER" --admin-pass "$NEXTCLOUDADMINUSERPASSWORD" --data-dir "$NEXTCLOUDDATAPATH"
+sudo -u www-data php /var/www/nextcloud/occ maintenance:install --database "mysql" --database-name $MAINDB --database-user $MAINUSER --database-pass $PASSWDDB --admin-user "$NEXTCLOUDADMINUSER" --admin-pass "$NEXTCLOUDADMINUSERPASSWORD" --data-dir "$NEXTCLOUDDATAPATH"
 ###read and store the current hostname in lowercases
 declare -l YOURSERVERNAME
 #YOURSERVERNAME=$(hostname)
@@ -580,50 +584,6 @@ sed -i 's/^[ ]*//' /var/www/nextcloud/config/config.php
 chown -R www-data:www-data /var/www
 restart_all_services
 update_and_clean
-###install fail2ban
-apt install fail2ban -y
-###create a fail2ban Nextcloud filter
-touch /etc/fail2ban/filter.d/nextcloud.conf
-cat <<EOF >/etc/fail2ban/filter.d/nextcloud.conf
-[Definition]
-failregex=^{"reqId":".*","remoteAddr":".*","app":"core","message":"Login failed: '.*' \(Remote IP: '<HOST>'\)","level":2,"time":".*"}$
-          ^{"reqId":".*","level":2,"time":".*","remoteAddr":".*","user,:".*","app":"no app in context".*","method":".*","message":"Login failed: '.*' \(Remote IP: '<HOST>'\)".*}$
-          ^{"reqId":".*","level":2,"time":".*","remoteAddr":".*","user":".*","app":".*","method":".*","url":".*","message":"Login failed: .* \(Remote IP: <HOST>\).*}$
-EOF
-###create a fail2ban Nextcloud jail
-touch /etc/fail2ban/jail.d/nextcloud.local
-cat <<EOF >/etc/fail2ban/jail.d/nextcloud.local
-[nextcloud]
-backend = auto
-enabled = true
-port = 80,443
-protocol = tcp
-filter = nextcloud
-maxretry = 5
-bantime = 3600
-findtime = 3600
-logpath = $NEXTCLOUDDATAPATH/nextcloud.log
-[nginx-http-auth]
-enabled = true
-EOF
-update_and_clean
-###install ufw
-apt install ufw -y
-###open firewall ports 80+443 for http(s)
-ufw allow 80/tcp
-ufw allow 443/tcp
-###open firewall port 22 for SSH
-ufw allow 22/tcp
-###enable UFW (autostart)
-ufw logging medium && ufw default deny incoming && ufw enable
-###restart fail2ban, ufw and redis-server services
-/usr/sbin/service ufw restart
-/usr/sbin/service fail2ban restart
-/usr/sbin/service redis-server restart
-sudo -u www-data php /var/www/nextcloud/occ app:disable survey_client
-sudo -u www-data php /var/www/nextcloud/occ app:disable firstrunwizard
-sudo -u www-data php /var/www/nextcloud/occ app:enable admin_audit
-sudo -u www-data php /var/www/nextcloud/occ app:enable files_pdfviewer
 ###clean up redis-server
 redis-cli -s /var/run/redis/redis-server.sock <<EOF
 FLUSHALL
@@ -668,7 +628,9 @@ echo ""
 echo " https://$YOURSERVERNAME"
 echo ""
 echo "*******************************************************************************"
-echo "Your Nextcloud DB data : nextcloud | nextcloud"
+echo "Your Nextcloud DB data : $MAINDB"
+echo "Your Nextcloud-DB password: $MAINUSER"
+echo "Your Nextcloud-DB password: $PASSWDDB"
 echo ""
 echo "Your Nextcloud User    : "$NEXTCLOUDADMINUSER
 echo "Your Nextcloud Password: "$NEXTCLOUDADMINUSERPASSWORD
@@ -687,4 +649,3 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo ""
 ### CleanUp
 cat /dev/null > ~/.bash_history && history -c && history -w
-exit 0
