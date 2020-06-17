@@ -161,19 +161,15 @@ echo ""
 echo " Your database server will now be hardened."
 echo " Keep in mind: your MariaDB root password is still NOT set!"
 echo ""
-#mysql_secure_installation
-# Make sure that NOBODY can access the server without a password
-#mysql -e "UPDATE mysql.user SET Password = PASSWORD('CHANGEME') WHERE User = 'root'"
-# Kill the anonymous users
-#mysql -e "DROP USER ''@'localhost'"
-# Because our hostname varies we'll use some Bash magic here.
-mysql -e "DROP USER ''@'$(hostname)'"
-echo "Kill the anonymous users. Done."
-# Kill off the demo database
-mysql -e "DROP DATABASE test"
-echo "Kill off the demo database. Done."
-# Make our changes take effect
-mysql -e "FLUSH PRIVILEGES"
+mysql_secure_installation << 'EOF'
+y
+n
+y
+y
+y
+y
+EOF
+
 /usr/sbin/service mysql stop
 ###configure MariaDB
 mv /etc/mysql/my.cnf /etc/mysql/my.cnf.bak
@@ -256,14 +252,17 @@ EOF
 /usr/sbin/service mysql restart
 ###restart MariaDB server and connect to MariaDB to create the database
 # Create random password 
-PASSWDDB=`openssl rand -base64 40`
+PASSWDDB=`openssl rand -base64 10`
 MAINDB="cloudDB"
 MAINUSER="admin"
 
 mysql -u root <<MYSQL_SCRIPT
 CREATE DATABASE ${MAINDB} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; CREATE USER ${MAINUSER}@localhost identified by '${PASSWDDB}'; 
-GRANT ALL PRIVILEGES on ${MAINDB}.* to ${MAINUSER}@localhost; FLUSH privileges;
+GRANT ALL PRIVILEGES on ${MAINDB}.* to ${MAINUSER}@localhost; 
+FLUSH privileges;
 MYSQL_SCRIPT
+
+mysql -u root -e "show databases;"
 
 update_and_clean
 ###install Redis-Server
@@ -478,9 +477,10 @@ sed -i s/\#\include/\include/g /etc/nginx/nginx.conf
 /usr/sbin/service nginx restart
 ###Download Nextclouds release and extract it
 nextcloud_version="18.0.6"
+cd /var/www/
 curl -LO https://download.nextcloud.com/server/releases/nextcloud-${nextcloud_version}.zip
-unzip nextcloud-* -d /var/www
-rm -f nextcloud-*
+unzip nextcloud-*
+#rm -f nextcloud-*
 ###apply permissions
 chown -R www-data:www-data /var/www/
 ###update and restart all sources and services
@@ -533,6 +533,7 @@ YOURSERVERNAME=${domainname}
 ###Modifications to Nextclouds config.php
 sudo -u www-data cp /var/www/nextcloud/config/config.php /var/www/nextcloud/config/config.php.bak
 sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains 0 --value=$YOURSERVERNAME
+sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains 1 --value=$(hostname)
 sudo -u www-data php /var/www/nextcloud/occ config:system:set overwrite.cli.url --value=https://$YOURSERVERNAME
 echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -613,9 +614,9 @@ echo "Press 'y' to issue optimizations."
 echo "---------------------------------"
 echo ""
 sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
-sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint
+yes | sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint
 echo " "
-echo " The document server will be downloaded - please be patient (~ 300MB) ..."
+#echo " The document server will be downloaded - please be patient (~ 300MB) ..."
 echo " " 
 sudo -u www-data php /var/www/nextcloud/occ security:certificates:import /etc/ssl/certs/ssl-cert-snakeoil.pem
 #sudo -u www-data php /var/www/nextcloud/occ app:install documentserver_community
@@ -663,3 +664,4 @@ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo ""
 ### CleanUp
 cat /dev/null > ~/.bash_history && history -c && history -w
+exit 0
