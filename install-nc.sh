@@ -10,7 +10,7 @@
 
 # REPLACE server_name with yours cloud.domain.com #
 # var
-domainname=cloud.domain.com
+domainname=nextcloud.lan
 
 # Reference on the original script 
 #https://riegers.in/install-nextcloud-18-using-one-script-only/
@@ -33,8 +33,6 @@ apt autoremove -y
   nextcloud_scan_data() {
 sudo -u www-data php /var/www/nextcloud/occ files:scan --all
 sudo -u www-data php /var/www/nextcloud/occ files:scan-app-data
-fail2ban-client status nextcloud
-ufw status verbose
 }
 ### START ###
 apt install gnupg gnupg2 lsb-release wget curl -y
@@ -158,12 +156,24 @@ ln -s /usr/local/bin/gs /usr/bin/gs
 apt update && apt install mariadb-server -y
 
 ###harden your MariDB server
-mysql_secure_installation
 clear
 echo ""
-echo " Your database server will now be hardened - just follow the instructions."
+echo " Your database server will now be hardened."
 echo " Keep in mind: your MariaDB root password is still NOT set!"
 echo ""
+#mysql_secure_installation
+# Make sure that NOBODY can access the server without a password
+#mysql -e "UPDATE mysql.user SET Password = PASSWORD('CHANGEME') WHERE User = 'root'"
+# Kill the anonymous users
+#mysql -e "DROP USER ''@'localhost'"
+# Because our hostname varies we'll use some Bash magic here.
+mysql -e "DROP USER ''@'$(hostname)'"
+echo "Kill the anonymous users. Done."
+# Kill off the demo database
+mysql -e "DROP DATABASE test"
+echo "Kill off the demo database. Done."
+# Make our changes take effect
+mysql -e "FLUSH PRIVILEGES"
 /usr/sbin/service mysql stop
 ###configure MariaDB
 mv /etc/mysql/my.cnf /etc/mysql/my.cnf.bak
@@ -469,7 +479,7 @@ sed -i s/\#\include/\include/g /etc/nginx/nginx.conf
 ###Download Nextclouds release and extract it
 nextcloud_version="18.0.6"
 curl -LO https://download.nextcloud.com/server/releases/nextcloud-${nextcloud_version}.zip
-unzip nextcloud-* -d /var/www/
+unzip nextcloud-* -d /var/www
 rm -f nextcloud-*
 ###apply permissions
 chown -R www-data:www-data /var/www/
@@ -485,12 +495,16 @@ echo "Your Nextcloud-DB user: $MAINUSER"
 echo ""
 echo "Your Nextcloud-DB password: $PASSWDDB"
 echo ""
-read -p "Enter your Nextcloud Administrator: " NEXTCLOUDADMINUSER
+#read -p "Enter your Nextcloud Administrator: " NEXTCLOUDADMINUSER
+NEXTCLOUDADMINUSER='admin'
 echo "Your Nextcloud Administrator: "$NEXTCLOUDADMINUSER
 echo ""
-read -p "Enter your Nextcloud Administrator password: " NEXTCLOUDADMINUSERPASSWORD
+NEXTCLOUDADMINUSERPASSWORD='nextcloud'
+#read -p "Enter your Nextcloud Administrator password: " NEXTCLOUDADMINUSERPASSWORD
 echo "Your Nextcloud Administrator password: "$NEXTCLOUDADMINUSERPASSWORD
 echo ""
+# edit your nexcloud data files location. Will default to /var/www/nextcloud/data
+NEXTCLOUDDATAPATH=/var/www/nextcloud/data
 while [[ $NEXTCLOUDDATAPATH == '' ]]
 do
 read -p "Enter your absolute Nextcloud datapath (/your/path): " NEXTCLOUDDATAPATH
@@ -602,17 +616,17 @@ sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices
 sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint
 echo " "
 echo " The document server will be downloaded - please be patient (~ 300MB) ..."
-echo " "
+echo " " 
 sudo -u www-data php /var/www/nextcloud/occ security:certificates:import /etc/ssl/certs/ssl-cert-snakeoil.pem
-sudo -u www-data php /var/www/nextcloud/occ app:install documentserver_community
-echo " The document server will be enabled..."
-sudo -u www-data php /var/www/nextcloud/occ app:enable documentserver_community
+#sudo -u www-data php /var/www/nextcloud/occ app:install documentserver_community
+#echo " The document server will be enabled..."
+#sudo -u www-data php /var/www/nextcloud/occ app:enable documentserver_community
 echo " "
-echo " The Onlyoffice app will be downloaded - please be patient ..."
-sudo -u www-data php /var/www/nextcloud/occ app:install onlyoffice
+#echo " The Onlyoffice app will be downloaded - please be patient ..."
+#sudo -u www-data php /var/www/nextcloud/occ app:install onlyoffice
 echo " "
-echo " The Onlyoffice app will be enabled ..."
-sudo -u www-data php /var/www/nextcloud/occ app:enable onlyoffice
+#echo " The Onlyoffice app will be enabled ..."
+#sudo -u www-data php /var/www/nextcloud/occ app:enable onlyoffice
 echo " "
 ###rescan Nextcloud data
 nextcloud_scan_data
