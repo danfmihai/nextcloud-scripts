@@ -3,7 +3,8 @@
 #find /var/www/ -type d -print0 | xargs -0 chmod 0750
 chmod -R 775 /var/www/letsencrypt 
 chmod -R 755 /etc/letsencrypt 
-chown -R www-data:www-data /var/www/
+chown -R www-data:www-data /var/www/nextcloud
+
 #chown -R www-data:www-data /var/nc_data/
 chmod 0644 /var/www/nextcloud/.htaccess
 chmod 0644 /var/www/nextcloud/.user.ini
