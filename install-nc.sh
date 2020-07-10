@@ -10,7 +10,7 @@
 
 # REPLACE server_name with yours cloud.domain.com #
 # var
-domainname=nextcloud.lan
+domainname=nctest.varu.local
 
 # Reference on the original script 
 #https://riegers.in/install-nextcloud-18-using-one-script-only/
@@ -18,7 +18,9 @@ domainname=nextcloud.lan
 ###global function to update and cleanup the environment
   update_and_clean() {
 apt update
-apt upgrade -y
+apt upgrade -y << 'EOF'
+Y
+EOF
 apt autoclean -y
 apt autoremove -y
 }
@@ -162,12 +164,12 @@ echo " Your database server will now be hardened."
 echo " Keep in mind: your MariaDB root password is still NOT set!"
 echo ""
 mysql_secure_installation << 'EOF'
-y
 n
-y
-y
-y
-y
+n
+Y
+Y
+Y
+Y
 EOF
 
 /usr/sbin/service mysql stop
@@ -476,7 +478,7 @@ sed -i s/\#\include/\include/g /etc/nginx/nginx.conf
 ###restart NGINX
 /usr/sbin/service nginx restart
 ###Download Nextclouds release and extract it
-nextcloud_version="18.0.6"
+nextcloud_version="18.0.4"
 cd /var/www/
 curl -LO https://download.nextcloud.com/server/releases/nextcloud-${nextcloud_version}.zip
 unzip nextcloud-*
@@ -663,5 +665,5 @@ echo ""
 echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
 ### CleanUp
-cat /dev/null > ~/.bash_history && history -c && history -w
+#cat /dev/null > ~/.bash_history && history -c && history -w
 exit 0
