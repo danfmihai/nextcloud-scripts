@@ -5,20 +5,21 @@
 # Working folders #
 
 ## REPLACE YOUR NEXTCLOUD FOLDER NAME BELOW WITH YOURS IF NOT THE SAME NAME:
-nextcloud_folder_name=nextcloud              # Nextcloud installation folder name
-dir=/var/www                                 #nginx or apache root folder 
-nextcloud_dir=$dir/$nextcloud_folder_name    #nextcloud installation folder variable
-backup_dir=~/nextcloud_backup                #backup base dir
-backup_remote=root@proxmox.lan               #backup remote host whre to transfer the backup files
-backup_port=30004                            #backup remote host port
-backup_location=/mnt/backup/vps/nextcloud/   #backup remote destination for the backup files
+nextcloud_folder_name=nextcloud                          # Nextcloud installation folder name ( usually "nextcloud")
+dir=/var/www                                             # parent folder where nexcloud is installed
+nextcloud_dir=$dir/$nextcloud_folder_name                # nextcloud installation folder variable
+backup_dir=~/nextcloud_backup_$(date '+%m-%d-%Y')        # backup base dir
+backup_remote=root@proxmox.lan                           # backup remote host whre to transfer the backup files
+backup_port=30004                                        # backup remote host port
+backup_location=/mnt/backup/vps/nextcloud/               # backup remote destination folder for the backup files (replace with yours)
 backup_log=~/backup_$(date '+%m-%d-%Y-%H:%M').log
 user_cred=$backup_dir/db_cred.txt
-ng_folder=/etc/nginx/
-le_folder=/etc/letsencrypt/
+ng_folder=/etc/nginx/                                    # nginx folder
+le_folder=/etc/letsencrypt/                              # letsencrypt folder
 
 clear 
 
+#getting info about nexcloud installation (ex db_user, db_pass, installed version...)
 get_info () {
     version=$(cat $nextcloud_dir/config/config.php | grep version | awk '{print $3}' | sed "s/['\,,\"]//g")
     _dbname=$(cat $nextcloud_dir/config/config.php | grep dbname | awk '{print $3}' | sed "s/['\,,\"]//g")
@@ -29,6 +30,7 @@ get_info () {
     echo "password='${_dbpass}'" >> $user_cred
 }
 
+# compressing LetsEncrypt and nginx folders
 compress_letsencrypt_nginx () {
       echo "Compressing configuration folders nginx and letsencrypt"
       echo
@@ -47,7 +49,7 @@ echo
             # test if database folder exists
             if [ ! -d $backup_dir/database ]
             then
-                  echo "Backup folder doesn't exists on your filesystem."
+                  echo "Backup folder 'database' doesn't exists on your filesystem."
                   mkdir -p $backup_dir/database
                   if [ -d $backup_dir/database ] 
                   then  echo "Folder ${backup_dir}/database created.."
@@ -71,9 +73,9 @@ echo
             echo
             
             # name of the database file that will be created as backup
-            db_file=nextcloud_$(date '+%m-%d-%Y-%H:%M')_$version.sql
+            db_file=nextcloud_$(date '+%m-%d-%Y')_$version.sql
             # tar file of nextcloud folder
-            tar_file=nextcloud_$(date '+%m-%d-%Y-%H:%M')_$version.tar.gz
+            tar_file=nextcloud_$(date '+%m-%d-%Y')_$version.tar.gz
 
             echo "Any existing backup files ${db_file} and ${tar_file} will be overwritten!"
             echo
@@ -92,11 +94,12 @@ echo
             # Creating archive tar for folder nextcloud/
             tar cpzf $backup_dir/$tar_file nextcloud/ --force-local
             cd $backup_dir
-            echo "Tar ${tar_file} archive done. "
+            echo "Backup of Nextcloud folder into ${tar_file} archive done. "
             echo
             echo "Transfering the backup file and the database... "
             echo "Please wait..."
             # transfer the database and folder backup to the remote destination
+            rm $user_cred
             rsync -az -e "ssh -p $backup_port" $backup_dir $backup_remote:$backup_location
             echo "DATE:" $(date) >> $backup_log 2>&1
             echo "-----------------------------------------------------------------------------------------------------" >> $backup_log 2>&1
